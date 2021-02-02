@@ -100,32 +100,38 @@ export default class App {
   }
 
   createCamera() {
+    const axesHelper = new THREE.AxesHelper(5);
+    this.scene.add(axesHelper);
     this.camera = new THREE.PerspectiveCamera(25, window.innerWidth / window.innerHeight, 1, 1000);
-    this.camera.position.set(0, -20, 10);
+    this.camera.position.set(15, 20, 30);
 
     this.scene.add(this.camera);
   }
 
   addCameraControls() {
-    this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
-    this.controls.maxPolarAngle = radians(180);
+    this.controlsOrbit = new THREE.OrbitControls(this.camera, this.renderer.domElement);
 
     document.body.style.cursor = '-moz-grabg';
     document.body.style.cursor = '-webkit-grab';
 
-    this.controls.addEventListener('start', () => {
+    this.controlsOrbit.addEventListener('start', () => {
       requestAnimationFrame(() => {
         document.body.style.cursor = '-moz-grabbing';
         document.body.style.cursor = '-webkit-grabbing';
       });
     });
 
-    this.controls.addEventListener('end', () => {
+    this.controlsOrbit.addEventListener('end', () => {
       requestAnimationFrame(() => {
         document.body.style.cursor = '-moz-grab';
         document.body.style.cursor = '-webkit-grab';
       });
     });
+
+    this.controls = new THREE.TransformControls(this.camera, this.renderer.domElement);
+    this.controls.addEventListener('change', this.animate.bind(this));
+    this.controls.attach(this.meshes.original[0]);
+    this.scene.add(this.controls);
   }
 
   addAmbientLight() {
@@ -136,7 +142,7 @@ export default class App {
 
   addDirectionalLight() {
     const target = new THREE.Object3D();
-    target.position.set(-10, 0, -12);
+    target.position.set(0, -5, 0);
 
     this.directionalLight = new THREE.DirectionalLight(0xffffff, 1);
     this.directionalLight.castShadow = true;
@@ -151,11 +157,12 @@ export default class App {
   }
 
   addFloor() {
-    const geometry = new THREE.PlaneBufferGeometry(1, 1);
+    const geometry = new THREE.PlaneBufferGeometry(10, 10);
     const material = new THREE.MeshStandardMaterial({ color: 0xff00ff, side: THREE.DoubleSide });
 
     this.floor = new THREE.Mesh(geometry, material);
     this.floor.position.y = 0;
+    this.floor.rotateX(Math.PI / 2);
     this.floor.receiveShadow = true;
 
     this.scene.add(this.floor);
@@ -211,6 +218,25 @@ export default class App {
         mesh.initialRotationZ = 0;
       }
     }
+
+    const geometry = new THREE.BoxBufferGeometry(1, 1, .1);
+
+    const matParams = {
+      emissive: 0x0,
+      roughness: 1,
+      metalness: 0,
+    };
+
+    const material = new THREE.MeshStandardMaterial(matParams);
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+
+    mesh.position.set(0, 2, 0);
+    mesh.rotation.x = -radians(90);
+    mesh.rotation.y = radians(30);
+
+    this.meshes.container.add(mesh);
   }
 
   addPhysics() {
@@ -222,15 +248,21 @@ export default class App {
 
     // CREATE WORLD
     this.world = new CANNON.World();
-    this.world.gravity.set(0, 0, -20);
+    this.world.gravity.set(0, -20, 0);
     this.world.broadphase = new CANNON.NaiveBroadphase();
+    this.world.solver.iterations = 10;
+    this.world.defaultContactMaterial.contactEquationStiffness = 1e6;
+    this.world.defaultContactMaterial.contactEquationRelaxation = 3;
+    this.cannonDebugRenderer = new THREE.CannonDebugRenderer(this.scene, this.world);
 
     // CREATE PLANE
     this.groundBody = new CANNON.Body({
       mass: 0,
-      material:  new CANNON.Material(),
+      material: new CANNON.Material(),
     });
-    this.groundShape = new CANNON.Plane();
+    this.groundBody.id = 'ground';
+    this.groundShape = new CANNON.Plane(1, 1, 1);
+    this.groundBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), radians(-90));
     this.groundBody.addShape(this.groundShape);
     this.world.addBody(this.groundBody);
 
@@ -240,10 +272,27 @@ export default class App {
       mass: 1,
       material: new CANNON.Material(),
       shape: new CANNON.Sphere(this.radius),
-      position: new CANNON.Vec3(0, 0, 5),
+      position: new CANNON.Vec3(0, 5, 0),
     });
     this.sphereBody.linearDamping = this.damping;
+    this.sphereBody.fixedRotation = true;
+
+    this.sphereBody.angularDamping = .5;
+    this.sphereBody.sleepSpeedLimit = 20;
+    this.sphereBody.sleepTimeLimit = 20;
     this.world.addBody(this.sphereBody);
+
+    // CREATE BOX
+    this.radius = .3;
+    this.boxBody = new CANNON.Body({
+      mass: 0,
+      material: new CANNON.Material(),
+      shape: new CANNON.Box(new CANNON.Vec3(.5, .05, .5)),
+      position: new CANNON.Vec3(0, 2, 0),
+    });
+
+    this.boxBody.quaternion.setFromAxisAngle(new CANNON.Vec3(0, 0, -1), radians(30))
+    this.world.addBody(this.boxBody);
 
     // ADD BOUNCE GROUND MATERIAL
     const mat2_ground = new CANNON.ContactMaterial(this.groundBody.material, this.sphereBody.material, { friction: 0.2, restitution: 0.4 });
@@ -251,20 +300,17 @@ export default class App {
   }
 
   draw() {
-    this.motion.spring().update((this.motion.mouseX - ((this.width * .5))) * 2);
 
-    for (let index = 0; index < this.meshes.total; index++) {
-      const mesh = this.meshes.animated[index];
-
-      gsap.to(mesh.rotation, .1, {
-        z: -(this.motion.spring().x / 800) + mesh.initialRotationZ,
-        delay: index * .05,
-      });
-    }
   }
 
 
   addWindowListeners() {
+    window.addEventListener('click', () => {
+      this.sphereBody.sleep();
+      this.sphereBody.position.set(0, 5, 0);
+      this.sphereBody.wakeUp();
+    });
+
     window.addEventListener('resize', this.onResize.bind(this), { passive: true });
     window.addEventListener('mousemove', ({ x }) => {
       this.motion.mouseX = x;
@@ -290,12 +336,13 @@ export default class App {
   animate() {
     this.stats.begin();
     this.draw();
-    this.controls.update();
+    this.controlsOrbit.update();
     this.renderer.render(this.scene, this.camera);
     this.stats.end();
 
     // PHYSIC LOOP
     if (this.lastTime !== undefined) {
+      this.cannonDebugRenderer.update();
       var dt = (this.time - this.lastTime) / 1000;
       this.world.step(this.fixedTimeStep, dt, this.maxSubSteps);
 

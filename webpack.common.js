@@ -24,6 +24,8 @@ module.exports = {
       patterns: [
         { from: './src/scripts/vendor/three.r124.min.js', to: 'three.r124.min.js' },
         { from: './src/scripts/vendor/cannon.js', to: 'cannon.js' },
+        { from: './src/scripts/vendor/debugger.js', to: 'debugger.js' },
+        { from: './src/scripts/vendor/transform.js', to: 'transform.js' },
         { from: './src/scripts/vendor/OrbitControls.js', to: 'OrbitControls.js' },
         { from: './src/scripts/vendor/gsap.3.6.0.min.js', to: 'gsap.3.6.0.min.js' },
       ],
