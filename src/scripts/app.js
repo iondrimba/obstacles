@@ -5,22 +5,22 @@ import chroma from 'chroma-js';
 import {
   radians,
   rgbToHex,
-  Spring2D,
 } from './helpers';
 
 export default class App {
   init() {
     this.setup();
-    this.createGradientSteps();
+    this.addStatsMonitor();
     this.createScene();
     this.createCamera();
     this.addCameraControls();
     this.addAmbientLight();
+    this.addPhysics();
+    this.addBackWall();
     this.addFloor();
     this.addMeshes();
+    this.addObstacles();
     this.addDirectionalLight();
-    this.addStatsMonitor();
-    this.addPhysics();
     this.animate();
     this.addWindowListeners();
   }
@@ -29,24 +29,9 @@ export default class App {
     this.width = window.innerWidth;
     this.height = window.innerHeight;
 
-    this.motion = {
-      mouseX: 0,
-      velocity: .2,
-      mass: 6.0,
-      spring: () => {
-        if (this.spring) {
-          return this.spring;
-        }
-
-        this.spring = new Spring2D(this.width / 2, this.motion.mass)
-
-        return this.spring;
-      },
-    }
-
     this.meshes = {
       container: new THREE.Object3D(),
-      original: [],
+      spheres: [],
       animated: [],
       total: 1,
     };
@@ -55,34 +40,7 @@ export default class App {
 
     this.colors = {
       background: bgColor,
-      primary: bgColor,
-      secondary: '#e4f262',
-      scheme: {
-        type: 'gradient',
-        options: {
-          monochromatic: 'monochromatic',
-          gradient: 'gradient',
-        }
-      },
-      gradient: {
-        steps: 10,
-        dividers: {},
-        colors: () => {
-          return chroma.scale([this.colors.primary, this.colors.secondary])
-            .mode('lch')
-            .colors(this.colors.gradient.steps);
-        }
-      }
     };
-  }
-
-  createGradientSteps() {
-    const total = this.meshes.total;
-    for (let index = 0; index <= this.meshes.total; index++) {
-      if (total % index === 0) {
-        this.colors.gradient.dividers = Object.assign({}, this.colors.gradient.dividers, { [index]: index });
-      }
-    }
   }
 
   createScene() {
@@ -103,13 +61,19 @@ export default class App {
     const axesHelper = new THREE.AxesHelper(5);
     this.scene.add(axesHelper);
     this.camera = new THREE.PerspectiveCamera(25, window.innerWidth / window.innerHeight, 1, 1000);
-    this.camera.position.set(15, 20, 30);
+    this.camera.position.set(0, 15, 20);
 
     this.scene.add(this.camera);
   }
 
   addCameraControls() {
     this.controlsOrbit = new THREE.OrbitControls(this.camera, this.renderer.domElement);
+    this.controlsOrbit.minPolarAngle = radians(90);
+    this.controlsOrbit.maxPolarAngle = radians(90);
+    this.controlsOrbit.minAzimuthAngle = radians(-40);
+    this.controlsOrbit.maxAzimuthAngle = radians(40);
+    this.controlsOrbit.enableDamping = true;
+    this.controlsOrbit.dampingFactor = 0.02;
 
     document.body.style.cursor = '-moz-grabg';
     document.body.style.cursor = '-webkit-grab';
@@ -127,100 +91,106 @@ export default class App {
         document.body.style.cursor = '-webkit-grab';
       });
     });
-
-    this.controls = new THREE.TransformControls(this.camera, this.renderer.domElement);
-    this.controls.addEventListener('change', this.animate.bind(this));
-    this.controls.attach(this.meshes.original[0]);
-    this.scene.add(this.controls);
   }
 
   addAmbientLight() {
-    const light = new THREE.AmbientLight({ color: '#ffffff' }, .35, 500);
+    const light = new THREE.AmbientLight({ color: '#ffffff' }, .5);
 
     this.scene.add(light);
   }
 
   addDirectionalLight() {
     const target = new THREE.Object3D();
-    target.position.set(0, -5, 0);
+    target.position.set(0, 0, -40);
 
     this.directionalLight = new THREE.DirectionalLight(0xffffff, 1);
     this.directionalLight.castShadow = true;
     this.directionalLight.shadow.camera.needsUpdate = true;
     this.directionalLight.shadow.mapSize.width = 2048;
     this.directionalLight.shadow.mapSize.height = 2048;
-    this.directionalLight.position.set(2, 4, 2);
+    this.directionalLight.position.set(0, 10, 30);
     this.directionalLight.target = target;
 
     this.scene.add(this.directionalLight);
-    this.scene.add(this.directionalLight.target);
+    // this.scene.add(this.directionalLight.target);
+  }
+
+  addBackWall() {
+    const geometry = new THREE.PlaneBufferGeometry(40, 20);
+    const material = new THREE.MeshStandardMaterial({ color: 0xff00ff, side: THREE.DoubleSide });
+
+    this.backwall = new THREE.Mesh(geometry, material);
+    this.backwall.position.z = -.5;
+    this.backwall.receiveShadow = true;
+
+    this.scene.add(this.backwall);
   }
 
   addFloor() {
-    const geometry = new THREE.PlaneBufferGeometry(10, 10);
+    const geometry = new THREE.PlaneBufferGeometry(40, 20);
     const material = new THREE.MeshStandardMaterial({ color: 0xff00ff, side: THREE.DoubleSide });
 
     this.floor = new THREE.Mesh(geometry, material);
-    this.floor.position.y = 0;
+    this.floor.position.y = -5;
+    this.floor.position.z = 5;
     this.floor.rotateX(Math.PI / 2);
     this.floor.receiveShadow = true;
 
     this.scene.add(this.floor);
+
+    this.controls = new THREE.TransformControls(this.camera, this.renderer.domElement);
+    this.controls.enabled = false;
+    this.controls.attach(this.floor);
+    this.scene.add(this.controls);
+
+    // CREATE PHYSICS PLANE
+    this.groundBody = new CANNON.Body({
+      mass: 0,
+      position: new CANNON.Vec3(0, -5, 5),
+      material: new CANNON.Material(),
+    });
+
+    this.groundBody.id = 'ground';
+    this.groundShape = new CANNON.Plane(2,2,2);
+    //this.groundShape = new CANNON.Box(new CANNON.Vec3(20, 10, .1)),
+    this.groundBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), radians(-90));
+    this.groundBody.addShape(this.groundShape);
+    this.world.addBody(this.groundBody);
   }
 
-  getMesh() {
-    const geometry = new THREE.SphereBufferGeometry(.3, 32, 32);
+  getSphereMesh({ x, y, z }) {
+    const radius = .3, width = 32, height = 32;
+    const geometry = new THREE.SphereBufferGeometry(radius, width, height);
 
-    const matParams = {
+    const materialParams = {
       emissive: 0x0,
       roughness: 1,
       metalness: 0,
     };
-
-    const material = new THREE.MeshStandardMaterial(matParams);
+    const material = new THREE.MeshStandardMaterial(materialParams);
     const mesh = new THREE.Mesh(geometry, material);
+
     mesh.castShadow = true;
     mesh.receiveShadow = true;
+    mesh.position.set(x,y,z);
 
-    mesh.position.set(0, 0, 5);
+    // CREATE SPHERE BODY
+    mesh.body = new CANNON.Body({
+      mass: 1,
+      material: new CANNON.Material(),
+      shape: new CANNON.Sphere(radius),
+      position: new CANNON.Vec3(x, y, z),
+    });
+
+    mesh.body.linearDamping = this.damping;
+    mesh.body.fixedRotation = true;
 
     return mesh;
   }
 
-  addMeshes() {
-    const geometric = {
-      width: .8,
-      height: .8,
-      depth: .1,
-    };
-
-    for (let index = 0; index < this.meshes.total; index++) {
-      geometric.width = ((this.meshes.total - index) + (index * .1)) * .2;
-      geometric.height = geometric.width;
-
-      const mesh = this.getMesh(geometric);
-
-      this.meshes.original[index] = mesh;
-      this.meshes.animated[index] = mesh;
-
-      this.meshes.container.add(mesh);
-    }
-
-    this.meshes.animated.reverse();
-    this.motion.spring().update((this.motion.mouseX - ((this.width * .5))) * 2);
-
-    for (let index = 0; index < this.meshes.animated.length; index++) {
-      const mesh = this.meshes.animated[index];
-
-      if (index > 0) {
-        mesh.initialRotationZ = this.meshes.animated[index - 1].initialRotationZ + .1;
-      } else {
-        mesh.initialRotationZ = 0;
-      }
-    }
-
-    const geometry = new THREE.BoxBufferGeometry(1, 1, .1);
-
+  addObstacle(posX = -3, posY = 4, posZ = 0, rotation = 30) {
+    const width = 4;
+    const geometry = new THREE.BoxBufferGeometry(width, 1, .1);
     const matParams = {
       emissive: 0x0,
       roughness: 1,
@@ -232,17 +202,53 @@ export default class App {
     mesh.castShadow = true;
     mesh.receiveShadow = true;
 
-    mesh.position.set(0, 2, 0);
+    mesh.position.set(posX, posY, posZ);
     mesh.rotation.x = -radians(90);
-    mesh.rotation.y = radians(30);
+    mesh.rotation.y = radians(rotation);
 
     this.meshes.container.add(mesh);
+
+    // CREATE BOX
+    this.radius = .3;
+    const boxBody = new CANNON.Body({
+      mass: 0,
+      material: new CANNON.Material(),
+      shape: new CANNON.Box(new CANNON.Vec3(width * .5, .05, .5)),
+      position: new CANNON.Vec3(posX, posY, posZ),
+    });
+
+    boxBody.quaternion.setFromAxisAngle(new CANNON.Vec3(0, 0, -1), radians(rotation))
+    this.world.addBody(boxBody);
+
+    this.meshes.spheres.forEach((s) => {
+      // ADD BOUNCE BALL MATERIAL
+      const mat = new CANNON.ContactMaterial(boxBody.material, s.body.material, { friction: 0.5, restitution: 0.5 });
+      this.world.addContactMaterial(mat);
+    });
+  }
+
+  addObstacles() {
+    this.addObstacle();
+    this.addObstacle(0, 2, 0, -30);
+    this.addObstacle(-3, -1, 0, 20);
+  }
+
+  addMeshes() {
+    const s = this.getSphereMesh({ x: -4, y: 8, z: 0 });
+    this.meshes.spheres.push(s);
+    this.meshes.container.add(s);
+
+    this.world.addBody(s.body);
+
+    // ADD BOUNCE GROUND MATERIAL
+    const mat2_ground = new CANNON.ContactMaterial(this.groundBody.material, s.body.material, { friction: 0.3, restitution: 0.5 });
+    this.world.addContactMaterial(mat2_ground);
   }
 
   addPhysics() {
     this.fixedTimeStep = 1 / 60; // seconds
     this.maxSubSteps = 3;
-    this.damping = .05;
+    this.damping = .09;
     this.time = .01;
     this.lastTime = this.time;
 
@@ -254,73 +260,19 @@ export default class App {
     this.world.defaultContactMaterial.contactEquationStiffness = 1e6;
     this.world.defaultContactMaterial.contactEquationRelaxation = 3;
     this.cannonDebugRenderer = new THREE.CannonDebugRenderer(this.scene, this.world);
-
-    // CREATE PLANE
-    this.groundBody = new CANNON.Body({
-      mass: 0,
-      material: new CANNON.Material(),
-    });
-    this.groundBody.id = 'ground';
-    this.groundShape = new CANNON.Plane(1, 1, 1);
-    this.groundBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), radians(-90));
-    this.groundBody.addShape(this.groundShape);
-    this.world.addBody(this.groundBody);
-
-    // CREATE SPHERE
-    this.radius = .3;
-    this.sphereBody = new CANNON.Body({
-      mass: 1,
-      material: new CANNON.Material(),
-      shape: new CANNON.Sphere(this.radius),
-      position: new CANNON.Vec3(0, 5, 0),
-    });
-    this.sphereBody.linearDamping = this.damping;
-    this.sphereBody.fixedRotation = true;
-
-    this.sphereBody.angularDamping = .5;
-    this.sphereBody.sleepSpeedLimit = 20;
-    this.sphereBody.sleepTimeLimit = 20;
-    this.world.addBody(this.sphereBody);
-
-    // CREATE BOX
-    this.radius = .3;
-    this.boxBody = new CANNON.Body({
-      mass: 0,
-      material: new CANNON.Material(),
-      shape: new CANNON.Box(new CANNON.Vec3(.5, .05, .5)),
-      position: new CANNON.Vec3(0, 2, 0),
-    });
-
-    this.boxBody.quaternion.setFromAxisAngle(new CANNON.Vec3(0, 0, -1), radians(30))
-    this.world.addBody(this.boxBody);
-
-    // ADD BOUNCE GROUND MATERIAL
-    const mat2_ground = new CANNON.ContactMaterial(this.groundBody.material, this.sphereBody.material, { friction: 0.2, restitution: 0.4 });
-    this.world.addContactMaterial(mat2_ground);
   }
-
-  draw() {
-
-  }
-
 
   addWindowListeners() {
     window.addEventListener('click', () => {
-      this.sphereBody.sleep();
-      this.sphereBody.position.set(0, 5, 0);
-      this.sphereBody.wakeUp();
+      this.addMeshes();
     });
 
     window.addEventListener('resize', this.onResize.bind(this), { passive: true });
-    window.addEventListener('mousemove', ({ x }) => {
-      this.motion.mouseX = x;
-    }, { passive: true });
   }
 
   addStatsMonitor() {
     this.stats = new Stats();
     this.stats.showPanel(0);
-
     document.body.appendChild(this.stats.dom);
   }
 
@@ -335,10 +287,8 @@ export default class App {
 
   animate() {
     this.stats.begin();
-    this.draw();
     this.controlsOrbit.update();
     this.renderer.render(this.scene, this.camera);
-    this.stats.end();
 
     // PHYSIC LOOP
     if (this.lastTime !== undefined) {
@@ -346,11 +296,13 @@ export default class App {
       var dt = (this.time - this.lastTime) / 1000;
       this.world.step(this.fixedTimeStep, dt, this.maxSubSteps);
 
-
-      this.meshes.original[0].position.copy(this.sphereBody.position);
-      this.meshes.original[0].quaternion.copy(this.sphereBody.quaternion);
+      this.meshes.spheres.forEach((s) => {
+        s.position.copy(s.body.position);
+        s.quaternion.copy(s.body.quaternion);
+      });
     }
 
+    this.stats.end();
     this.lastTime = this.time;
 
     requestAnimationFrame(this.animate.bind(this));
