@@ -4,7 +4,7 @@
 
 ![Image Title](https://raw.githubusercontent.com/iondrimba/images/master/obstacle.gif)
 
-## [Demo](https://iondrimba.github.io/obstacles/public/index.html)
+## [Demo](https://iondrimba.github.io/obstacles/public/)
 
 ## Credits
 
