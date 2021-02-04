@@ -2,9 +2,8 @@
   "globals": {
     "THREE": true,
     "gsap": true,
-    "dat": true,
     "Elastic": true,
-    "Reflector": true,
+    "Tweakpane": true,
     "requestAnimFrame": true,
     "CANNON": true
   },

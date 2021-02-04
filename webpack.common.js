@@ -22,6 +22,7 @@ module.exports = {
     new CleanWebpackPlugin(),
     new CopyPlugin({
       patterns: [
+        { from: './src/scripts/vendor/tweakpane.js', to: 'tweakpane.js' },
         { from: './src/scripts/vendor/three.r124.min.js', to: 'three.r124.min.js' },
         { from: './src/scripts/vendor/cannon.js', to: 'cannon.js' },
         { from: './src/scripts/vendor/debugger.js', to: 'debugger.js' },
