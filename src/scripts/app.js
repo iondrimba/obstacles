@@ -5,6 +5,7 @@ import {
   radians,
   hexToRgbTreeJs,
   rgbToHex,
+  rInterval,
 } from './helpers';
 
 export default class App {
@@ -28,10 +29,30 @@ export default class App {
     this.addWindowListeners();
   }
 
+  addFallingBalls() {
+    if (this.animation.auto ) {
+      this.animation.loop = rInterval(this.addSpheres.bind(this), 300);
+    } else {
+      this.animation.loop.clear();
+    }
+  }
+
+  tweenColors(material, rgb) {
+    gsap.to(material.color, .3, {
+      ease: 'power2.out',
+      r: rgb.r, g: rgb.g, b: rgb.b,
+    });
+  }
+
   setup() {
     this.debug = false;
     this.width = window.innerWidth;
     this.height = window.innerHeight;
+    this.animation = {
+      auto: false,
+      interval: null,
+    };
+
     this.colors = {
       background: rgbToHex(window.getComputedStyle(document.body).backgroundColor),
       wall: '#ff003e',
@@ -259,7 +280,7 @@ export default class App {
       position: new CANNON.Vec3(posX, posY, posZ),
     });
 
-    mesh.body .quaternion.setFromAxisAngle(new CANNON.Vec3(0, 0, -1), radians(rotation))
+    mesh.body.quaternion.setFromAxisAngle(new CANNON.Vec3(0, 0, -1), radians(rotation))
 
     this.world.addBody(mesh.body);
 
@@ -348,6 +369,15 @@ export default class App {
 
   addGuiControls() {
     this.pane = new Tweakpane();
+    const guiAnimation = this.pane.addFolder({
+      title: 'Animation',
+    });
+
+    guiAnimation.addInput(this.animation, 'auto').on('change', (value) => {
+      this.animation.auto = value;
+      this.addFallingBalls();
+    });;
+
     const btn = this.pane.addButton({
       title: 'Add Ball',
     });
@@ -362,23 +392,23 @@ export default class App {
     });
 
     this.guiColors.addInput(this.colors, 'wall').on('change', (value) => {
-      this.backwall.material.color = hexToRgbTreeJs(value);
+      this.tweenColors(this.backwall.material, hexToRgbTreeJs(value));
     });
 
     this.guiColors.addInput(this.colors, 'floor').on('change', (value) => {
-      this.floor.material.color = hexToRgbTreeJs(value);
+      this.tweenColors(this.floor.material, hexToRgbTreeJs(value));
     });
 
     this.guiColors.addInput(this.colors, 'ball').on('change', (value) => {
-      this.meshes.sphereMaterial.color = hexToRgbTreeJs(value);
+      this.tweenColors(this.meshes.sphereMaterial, hexToRgbTreeJs(value));
     });
 
     this.guiColors.addInput(this.colors, 'cylinder').on('change', (value) => {
-      this.meshes.cylinderMaterial.color = hexToRgbTreeJs(value);
+      this.tweenColors(this.meshes.cylinderMaterial, hexToRgbTreeJs(value));
     });
 
     this.guiColors.addInput(this.colors, 'grid').on('change', (value) => {
-      this.grid.material.color = hexToRgbTreeJs(value);
+      this.tweenColors(this.grid.material, hexToRgbTreeJs(value));
     });
 
     this.guiLights = this.pane.addFolder({

@@ -23,6 +23,21 @@ const hexToRgbTreeJs = (hex) => {
 
 const rgbToHex = s => s.match(/[0-9]+/g).reduce((a, b) => a + (b | 256).toString(16).slice(1), '#')
 
+const rInterval = function(callback,delay) {
+  var dateNow=Date.now,
+    requestAnimation=window.requestAnimationFrame,
+    start=dateNow(),
+    stop,
+    intervalFunc=function() {
+      dateNow()-start<delay||(start+=delay, callback());
+      stop||requestAnimation(intervalFunc)
+    }
+  requestAnimation(intervalFunc);
+  return {
+    clear: function(){ stop=1 }
+  }
+}
+
 function Spring2D(xpos, m) {
   this.x = xpos;
   this.vx = 0;
@@ -39,6 +54,7 @@ function Spring2D(xpos, m) {
 }
 
 export {
+  rInterval,
   radians,
   distance,
   Spring2D,
