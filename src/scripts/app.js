@@ -3,7 +3,7 @@ import Stats from 'stats.js';
 
 import {
   radians,
-  hexToRgbTreeJs,
+  hexToRgb,
   rgbToHex,
   rInterval,
 } from './helpers';
@@ -30,7 +30,7 @@ export default class App {
   }
 
   addFallingBalls() {
-    if (this.animation.auto ) {
+    if (this.animation.auto) {
       this.animation.loop = rInterval(this.addSpheres.bind(this), 300);
     } else {
       this.animation.loop.clear();
@@ -190,6 +190,7 @@ export default class App {
 
     this.scene.add(this.backwall);
 
+    // physics backwall
     this.backwall.body = new CANNON.Body({
       mass: 0,
       position: new CANNON.Vec3(0, 3, -.4),
@@ -213,6 +214,7 @@ export default class App {
 
     this.scene.add(this.floor);
 
+    // physics floor
     this.floor.body = new CANNON.Body({
       mass: 0,
       position: new CANNON.Vec3(0, -5, 5),
@@ -272,7 +274,9 @@ export default class App {
     mesh.rotation.y = radians(rotation);
 
     this.meshes.container.add(mesh);
+    this.meshes.obstacles.push(mesh);
 
+    // physics obstacle
     mesh.body = new CANNON.Body({
       mass: 0,
       material: new CANNON.Material(),
@@ -281,10 +285,7 @@ export default class App {
     });
 
     mesh.body.quaternion.setFromAxisAngle(new CANNON.Vec3(0, 0, -1), radians(rotation))
-
     this.world.addBody(mesh.body);
-
-    this.meshes.obstacles.push(mesh);
   }
 
   addObstacles() {
@@ -318,6 +319,7 @@ export default class App {
 
       this.meshes.container.add(mesh);
 
+      // physics cylinder
       mesh.body = new CANNON.Body({
         mass: 0,
         material: new CANNON.Material(),
@@ -336,13 +338,15 @@ export default class App {
 
     this.meshes.spheres.push(mesh);
     this.meshes.container.add(mesh);
-    this.world.addBody(mesh.body);
 
+    // add contact config in relation to floor
+    this.world.addBody(mesh.body);
     const mat = new CANNON.ContactMaterial(this.floor.body.material, mesh.body.material, { friction: 0.3, restitution: 0.5 });
     this.world.addContactMaterial(mat);
 
     this.meshes.spheres.forEach((mesh) => {
       this.meshes.obstacles.forEach((o) => {
+        // add contact config in relation to each obstacle, only shapes (no cylinders)
         const mat = new CANNON.ContactMaterial(o.body.material, mesh.body.material, { friction: 0.3, restitution: 0.5 });
 
         this.world.addContactMaterial(mat);
@@ -369,15 +373,18 @@ export default class App {
 
   addGuiControls() {
     this.pane = new Tweakpane();
-    const guiAnimation = this.pane.addFolder({
+
+    // control animation
+    this.guiAnimation = this.pane.addFolder({
       title: 'Animation',
     });
 
-    guiAnimation.addInput(this.animation, 'auto').on('change', (value) => {
+    this.guiAnimation.addInput(this.animation, 'auto').on('change', (value) => {
       this.animation.auto = value;
       this.addFallingBalls();
-    });;
+    });
 
+    // add ball
     const btn = this.pane.addButton({
       title: 'Add Ball',
     });
@@ -386,34 +393,37 @@ export default class App {
       this.addSpheres();
     });
 
+
+    // control colors
     this.guiColors = this.pane.addFolder({
       title: 'Colors',
       expanded: true
     });
 
     this.guiColors.addInput(this.colors, 'wall').on('change', (value) => {
-      this.tweenColors(this.backwall.material, hexToRgbTreeJs(value));
+      this.tweenColors(this.backwall.material, hexToRgb(value));
     });
 
     this.guiColors.addInput(this.colors, 'floor').on('change', (value) => {
-      this.tweenColors(this.floor.material, hexToRgbTreeJs(value));
+      this.tweenColors(this.floor.material, hexToRgb(value));
     });
 
     this.guiColors.addInput(this.colors, 'ball').on('change', (value) => {
-      this.tweenColors(this.meshes.sphereMaterial, hexToRgbTreeJs(value));
+      this.tweenColors(this.meshes.sphereMaterial, hexToRgb(value));
     });
 
     this.guiColors.addInput(this.colors, 'cylinder').on('change', (value) => {
-      this.tweenColors(this.meshes.cylinderMaterial, hexToRgbTreeJs(value));
+      this.tweenColors(this.meshes.cylinderMaterial, hexToRgb(value));
     });
 
     this.guiColors.addInput(this.colors, 'grid').on('change', (value) => {
-      this.tweenColors(this.grid.material, hexToRgbTreeJs(value));
+      this.tweenColors(this.grid.material, hexToRgb(value));
     });
 
+    // control lights
     this.guiLights = this.pane.addFolder({
       title: 'Lights',
-      expanded: true
+      expanded: false,
     });
 
     this.guiLights.addInput(this.directionalLight.position, 'x', { min: -100, max: 100 }).on('change', (value) => {
@@ -432,6 +442,14 @@ export default class App {
 
   addWindowListeners() {
     window.addEventListener('resize', this.onResize.bind(this), { passive: true });
+
+    window.addEventListener('visibilitychange', (evt) => {
+      if(evt.target.hidden) {
+        this.animation.auto = false;
+        this.addFallingBalls();
+        this.pane.refresh();
+      }
+    }, false);
   }
 
   addStatsMonitor() {
@@ -454,12 +472,13 @@ export default class App {
     this.orbitControl.update();
     this.renderer.render(this.scene, this.camera);
 
-    // PHYSIC LOOP
+    // physics loop
     if (this.lastTime !== undefined) {
       this.debug && this.cannonDebugRenderer.update();
       var dt = (this.time - this.lastTime) / 1000;
       this.world.step(this.fixedTimeStep, dt, this.maxSubSteps);
 
+      // map physics position to threejs mesh position
       this.meshes.spheres.forEach((s) => {
         s.position.copy(s.body.position);
         s.quaternion.copy(s.body.quaternion);

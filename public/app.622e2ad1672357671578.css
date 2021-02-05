@@ -1,0 +1,70 @@
+html {
+  font-family: sans-serif;
+  -ms-text-size-adjust: 100%;
+  -webkit-text-size-adjust: 100%;
+}
+
+*,
+*::after,
+*::before {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  color: #fff;
+  background-color:#ff003e;
+  font-family: 'Ropa Sans', Arial, sans-serif;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+button.tp-btnv_b {
+  background-color: #fff;
+  padding: 14px;
+  height: auto;
+  transition: color .2s ease, background-color .2s ease;
+}
+
+button.tp-btnv_b:hover {
+  background-color: #333;
+  color: #fff;
+}
+
+button.tp-btnv_b:focus:not(:hover) {
+  background-color: #fff;
+  color: #333;
+}
+
+button.tp-btnv_b:active {
+  background-color: #fff;
+  color: #333;
+}
+
+a {
+  font-size: 22px;
+  color: #fff ;
+  text-decoration: none;
+  padding: 10px;
+  transition: background-color .25s ease-in, color .25s ease-in;
+}
+
+.dg.ac {
+  position: absolute;
+  z-index: 10 !important;
+}
+
+a:hover {
+  color: #ff003e;
+  background-color:#fff;
+}
+
+.credits {
+  margin: 10px;
+  position: absolute;
+  z-index: 1;
+  bottom: 0;
+  width: 100%;
+}
+

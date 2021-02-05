@@ -2,7 +2,7 @@
 
 ![Node.js CI](https://github.com/iondrimba/obstacles/workflows/Node.js%20CI/badge.svg)
 
-![Image Title](https://raw.githubusercontent.com/iondrimba/images/master/obstacles.gif)
+![Image Title](https://raw.githubusercontent.com/iondrimba/images/master/obstacle.gif)
 
 ## [Demo](https://iondrimba.github.io/obstacles/public/index.html)
 

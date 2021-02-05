@@ -2,15 +2,7 @@ const radians = (degrees) => {
   return degrees * Math.PI / 180;
 }
 
-const distance = (x1, y1, x2, y2) => {
-  return Math.sqrt(Math.pow((x1 - x2), 2) + Math.pow((y1 - y2), 2));
-}
-
-const map = (value, start1, stop1, start2, stop2) => {
-  return (value - start1) / (stop1 - start1) * (stop2 - start2) + start2
-}
-
-const hexToRgbTreeJs = (hex) => {
+const hexToRgb = (hex) => {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
 
   return result ? {
@@ -20,45 +12,29 @@ const hexToRgbTreeJs = (hex) => {
   } : null;
 }
 
-
 const rgbToHex = s => s.match(/[0-9]+/g).reduce((a, b) => a + (b | 256).toString(16).slice(1), '#')
 
-const rInterval = function(callback,delay) {
-  var dateNow=Date.now,
-    requestAnimation=window.requestAnimationFrame,
-    start=dateNow(),
-    stop,
-    intervalFunc=function() {
-      dateNow()-start<delay||(start+=delay, callback());
-      stop||requestAnimation(intervalFunc)
-    }
+const rInterval = function (callback, delay) {
+  const dateNow = Date.now;
+  const requestAnimation = window.requestAnimationFrame;
+  let start = dateNow();
+  let stop;
+
+  const intervalFunc = function () {
+    dateNow() - start < delay || (start += delay, callback());
+    stop || requestAnimation(intervalFunc);
+  };
+
   requestAnimation(intervalFunc);
+
   return {
-    clear: function(){ stop=1 }
-  }
-}
-
-function Spring2D(xpos, m) {
-  this.x = xpos;
-  this.vx = 0;
-  this.mass = m;
-  this.stiffness = 0.2;
-  this.damping = 0.6;
-
-  this.update = function (targetX) {
-    let forceX = (targetX - this.x) * this.stiffness;
-    let ax = forceX / this.mass;
-    this.vx = this.damping * (this.vx + ax);
-    this.x += this.vx;
-  }
+    clear: function () { stop = 1 },
+  };
 }
 
 export {
   rInterval,
   radians,
-  distance,
-  Spring2D,
-  map,
   rgbToHex,
-  hexToRgbTreeJs
+  hexToRgb,
 };
