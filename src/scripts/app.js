@@ -27,6 +27,7 @@ export default class App {
     this.addGuiControls();
     this.animate();
     this.addWindowListeners();
+    this.addFallingBalls();
   }
 
   addFallingBalls() {
@@ -49,7 +50,7 @@ export default class App {
     this.width = window.innerWidth;
     this.height = window.innerHeight;
     this.animation = {
-      auto: false,
+      auto: true,
       interval: null,
     };
 
@@ -242,6 +243,7 @@ export default class App {
     mesh.receiveShadow = true;
     mesh.position.set(x, y, z);
 
+     // physics sphere
     mesh.body = new CANNON.Body({
       mass: 1,
       material: new CANNON.Material(),
@@ -332,7 +334,7 @@ export default class App {
   }
 
   addSpheres() {
-    const pos = [-2, -1, 0, .5, 1, 1.5];
+    const pos = [-2, -1, 0, .2, .8, 1.1];
     const posX = pos[Math.floor(Math.random() * pos.length)];
     const mesh = this.getSphereMesh({ x: posX, y: 12, z: 0 });
 
