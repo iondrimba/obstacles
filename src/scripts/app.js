@@ -31,11 +31,11 @@ export default class App {
   }
 
   addFallingBalls() {
+    clearInterval(this.animation.loop);
     if (this.animation.auto) {
-      this.animation.loop = rInterval(this.addSpheres.bind(this), 300);
-    } else {
-      this.animation.loop.clear();
-    }
+      
+      this.animation.loop = setInterval(this.addSpheres.bind(this), 300);
+    } 
   }
 
   tweenColors(material, rgb) {
@@ -46,6 +46,7 @@ export default class App {
   }
 
   setup() {
+    this.lastTime = 0;
     this.debug = false;
     this.width = window.innerWidth;
     this.height = window.innerHeight;
@@ -447,9 +448,8 @@ export default class App {
 
     window.addEventListener('visibilitychange', (evt) => {
       if(evt.target.hidden) {
-        this.animation.auto = false;
+        this.animation.auto = evt.target.hidden;
         this.addFallingBalls();
-        this.pane.refresh();
       }
     }, false);
   }
@@ -470,14 +470,16 @@ export default class App {
   }
 
   animate() {
+    var currentTime = Date.now();
     this.stats.begin();
-    this.orbitControl.update();
-    this.renderer.render(this.scene, this.camera);
 
-    // physics loop
-    if (this.lastTime !== undefined) {
+    requestAnimationFrame(this.animate.bind(this));
+
+    if (currentTime - this.lastTime > 1000 / 70) {
+      this.orbitControl.update();
+
       this.debug && this.cannonDebugRenderer.update();
-      var dt = (this.time - this.lastTime) / 1000;
+      var dt = (currentTime - this.lastTime) / 1000;
       this.world.step(this.fixedTimeStep, dt, this.maxSubSteps);
 
       // map physics position to threejs mesh position
@@ -485,11 +487,11 @@ export default class App {
         s.position.copy(s.body.position);
         s.quaternion.copy(s.body.quaternion);
       });
+
+      this.lastTime = Date.now();
     }
 
+    this.renderer.render(this.scene, this.camera);
     this.stats.end();
-    this.lastTime = this.time;
-
-    requestAnimationFrame(this.animate.bind(this));
   }
 }
